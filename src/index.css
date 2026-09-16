@@ -1,0 +1,30 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-blueprint-bg text-paper font-sans antialiased;
+  background-image:
+    linear-gradient(rgba(142, 202, 230, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(142, 202, 230, 0.07) 1px, transparent 1px);
+  background-size: 36px 36px;
+}
+
+/* Barra de scroll discreta, acorde al tema */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #24507a;
+  border-radius: 999px;
+}
+
+@layer components {
+  .campo-input {
+    @apply w-full rounded-md border border-blueprint-line bg-blueprint-deep px-3 py-2 text-sm text-paper placeholder:text-paper/30 outline-none transition focus:border-amber focus:ring-1 focus:ring-amber;
+  }
+}
