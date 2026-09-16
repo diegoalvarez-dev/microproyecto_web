@@ -22,7 +22,9 @@ export default function GrammarPanel({ gramatica, titulo = "Gramática actual", 
           )}
         </div>
         <span className="font-mono text-xs text-paper/40">
-          G = ({variables.join(", ")}, {inicial}, {"{"}
+          G = ({"{"}
+          {variables.filter((v) => v !== inicial).join(", ")}
+          {"}"}, {inicial}, {"{"}
           {terminales.join(", ")}
           {"}"}, P)
         </span>
