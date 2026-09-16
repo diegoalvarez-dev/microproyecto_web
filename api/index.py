@@ -21,6 +21,15 @@ un JSON con la gramatica resultante + el/los pasos de historial
 generados en esa llamada.
 """
 
+import os
+import sys
+
+# Asegura que la carpeta 'api/' este en el sys.path, ya que en Vercel el
+# runtime de Python importa este archivo desde la raiz del repositorio y
+# no desde dentro de 'api/', por lo que "_logica" no se encontraria sin
+# esto (causaba: "could not import api/index.py": No module named '_logica').
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
 from flask import Flask, request, jsonify
 
 from _logica.adaptador import gramatica_desde_json, gramatica_a_json, historial_a_json, paso_a_json
