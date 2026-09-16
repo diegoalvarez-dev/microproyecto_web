@@ -142,13 +142,17 @@ def binarizar_producciones(gramatica, historial=None):
     producciones_eliminadas = []
     producciones_agregadas = []
     definiciones_nuevas = {}  # variable_auxiliar -> tupla binaria que la define
+    detalle_producciones = []  # desglose por produccion, para la vista estilo cuaderno
 
-    def construir_cadena(simbolos):
+    def construir_cadena(simbolos, registro_local):
         """
         Reduce una lista de simbolos (longitud >= 2) a una produccion
         binaria valida, creando variables auxiliares nuevas en el
         MISMO orden en que se van necesitando (peelando desde el
         primer simbolo hacia la derecha, recursivamente).
+        `registro_local` acumula (nombre, definicion) de las variables
+        nuevas creadas SOLO para esta produccion en particular, en
+        orden de creacion (para mostrarlas con "chulo" en la interfaz).
         """
         if len(simbolos) == 2:
             return tuple(simbolos)
@@ -157,8 +161,9 @@ def binarizar_producciones(gramatica, historial=None):
         resto = simbolos[1:]
 
         nueva_var = generador.nueva_variable()
-        definicion_resto = construir_cadena(resto)  # puede seguir recursando
+        definicion_resto = construir_cadena(resto, registro_local)
         definiciones_nuevas[nueva_var] = definicion_resto
+        registro_local.append((nueva_var, definicion_resto))
         producciones_agregadas.append(
             f"{nueva_var} -> {formatear_produccion(definicion_resto)}"
         )
@@ -170,10 +175,28 @@ def binarizar_producciones(gramatica, historial=None):
         nueva_lista = []
         for produccion in lista_producciones:
             if produccion == nueva.NULA or len(produccion) <= 2:
+                # Ya cumple FNC tal cual (Vt, Vnt, o cualquier pareja
+                # VtVnt/VntVnt/VtVt/VntVt): se "encierra en circulo",
+                # va directo a las producciones de la variable.
                 nueva_lista.append(produccion)
+                detalle_producciones.append({
+                    "variable": variable,
+                    "original": formatear_produccion(produccion),
+                    "yaEraValida": True,
+                    "resultado": formatear_produccion(produccion),
+                    "variablesNuevas": [],
+                })
                 continue
 
-            resultado = construir_cadena(list(produccion))
+            registro_local = []
+            resultado = construir_cadena(list(produccion), registro_local)
+
+            # Reordenar por numero (X1, X2, X3...) para que la vista
+            # las muestre de arriba hacia abajo en orden creciente,
+            # tal como en el cuaderno (la recursion las completa en
+            # orden inverso, pero se numeran en orden ascendente).
+            registro_local.sort(key=lambda item: int(item[0][1:]))
+
             producciones_eliminadas.append(
                 f"{variable} -> {formatear_produccion(produccion)}"
             )
@@ -182,7 +205,19 @@ def binarizar_producciones(gramatica, historial=None):
             )
             nueva_lista.append(resultado)
 
+            detalle_producciones.append({
+                "variable": variable,
+                "original": formatear_produccion(produccion),
+                "yaEraValida": False,
+                "resultado": formatear_produccion(resultado),
+                "variablesNuevas": [
+                    {"nombre": n, "valor": formatear_produccion(v)}
+                    for n, v in registro_local
+                ],
+            })
+
         nuevas_producciones[variable] = nueva_lista
+
 
     nueva.producciones = nuevas_producciones
 
@@ -201,6 +236,7 @@ def binarizar_producciones(gramatica, historial=None):
             producciones_eliminadas=producciones_eliminadas,
             producciones_agregadas=producciones_agregadas,
             gramatica_despues=nueva.copia(),
+            detalle=detalle_producciones,
         )
 
     return nueva

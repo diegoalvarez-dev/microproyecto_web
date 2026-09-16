@@ -20,6 +20,13 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
     setProduccionesTexto((prev) => ({ ...prev, [variable]: texto }));
   }
 
+  function limpiarCampos() {
+    setVariablesTexto("");
+    setTerminalesTexto("");
+    setInicial("");
+    setProduccionesTexto({});
+  }
+
   function manejarEnvio(e) {
     e.preventDefault();
 
@@ -126,6 +133,14 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
           className="mt-2 rounded-md bg-amber px-4 py-2 text-sm font-semibold text-blueprint-deep transition hover:bg-amber-dim disabled:cursor-not-allowed disabled:opacity-40"
         >
           {cargando ? "Registrando..." : "Registrar gramática"}
+        </button>
+
+        <button
+          type="button"
+          onClick={limpiarCampos}
+          className="rounded-md border border-blueprint-line px-4 py-2 text-sm font-medium text-paper/60 transition hover:border-coral/50 hover:text-coral/80"
+        >
+          Limpiar campos
         </button>
       </form>
     </>

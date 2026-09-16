@@ -58,6 +58,7 @@ def paso_a_json(paso):
         "produccionesEliminadas": paso.producciones_eliminadas or [],
         "produccionesAgregadas": paso.producciones_agregadas or [],
         "gramaticaDespues": gramatica_a_json(paso.gramatica_despues),
+        "detalleChomsky": getattr(paso, "detalle", None),
     }
 
 

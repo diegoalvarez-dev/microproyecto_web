@@ -6,6 +6,12 @@ import HistorialTimeline from "./components/HistorialTimeline.jsx";
 import ErrorBanner from "./components/ErrorBanner.jsx";
 import { api } from "./lib/gramaticaUtils.js";
 
+// Compara las producciones de dos gramaticas (formato JSON del backend)
+// para saber si una fase realmente cambio algo.
+function gramaticasIguales(a, b) {
+  return JSON.stringify(a.producciones) === JSON.stringify(b.producciones);
+}
+
 export default function App() {
   const [gramaticaOriginal, setGramaticaOriginal] = useState(null);
   const [gramaticaActual, setGramaticaActual] = useState(null);
@@ -15,6 +21,10 @@ export default function App() {
   const [generando, setGenerando] = useState(false);
   const [faseActiva, setFaseActiva] = useState(null);
   const [resultadoFnc, setResultadoFnc] = useState(null);
+  // Numero de "Sigma" actual (Σ0 = gramatica recien registrada). Solo
+  // avanza cuando una fase realmente modifica la gramatica; si una
+  // fase no cambia nada, el numero de Sigma se mantiene igual.
+  const [sigmaActual, setSigmaActual] = useState(0);
 
   async function registrarGramatica(gramaticaJson) {
     setCargando(true);
@@ -25,6 +35,7 @@ export default function App() {
       setGramaticaActual(resp.gramatica);
       setPasos([]);
       setResultadoFnc(null);
+      setSigmaActual(0);
       if (!resp.valida) {
         setErrorInfo({
           mensaje: "La gramática tiene errores. Corrígelos y vuelve a registrarla.",
@@ -36,6 +47,19 @@ export default function App() {
     } finally {
       setCargando(false);
     }
+  }
+
+  /**
+   * Le asigna a un paso su numero de Sigma "antes" y "despues",
+   * comparando la gramatica antes/despues que trae el propio paso.
+   * Recibe y devuelve el numero de sigma acumulado hasta el momento
+   * (para poder encadenar varios pasos seguidos, como en el modo
+   * automatico donde llegan varios pasos de una sola vez).
+   */
+  function etiquetarConSigma(paso, sigmaDesde) {
+    const cambio = !gramaticasIguales(paso.gramaticaAntes, paso.gramaticaDespues);
+    const sigmaDespues = cambio ? sigmaDesde + 1 : sigmaDesde;
+    return { paso: { ...paso, sigmaAntes: sigmaDesde, sigmaDespues }, sigmaDespues };
   }
 
   async function ejecutarFase(nombreFase, llamada, { esFinal = false } = {}) {
@@ -59,12 +83,26 @@ export default function App() {
 
       setGramaticaActual(resp.gramatica);
 
+      let sigmaAcumulado = sigmaActual;
+
       if (resp.paso) {
-        setPasos((prev) => [...prev, resp.paso]);
+        const { paso, sigmaDespues } = etiquetarConSigma(resp.paso, sigmaAcumulado);
+        sigmaAcumulado = sigmaDespues;
+        setPasos((prev) => [...prev, paso]);
       }
+
       if (resp.pasos) {
-        setPasos((prev) => [...prev, ...resp.pasos]);
+        const pasosEtiquetados = [];
+        for (const p of resp.pasos) {
+          const { paso, sigmaDespues } = etiquetarConSigma(p, sigmaAcumulado);
+          sigmaAcumulado = sigmaDespues;
+          pasosEtiquetados.push(paso);
+        }
+        setPasos((prev) => [...prev, ...pasosEtiquetados]);
       }
+
+      setSigmaActual(sigmaAcumulado);
+
       if (esFinal) {
         setResultadoFnc({
           valida: resp.esFncValida,
@@ -88,6 +126,7 @@ export default function App() {
       setGramaticaActual(resp.gramatica);
       setPasos([]);
       setResultadoFnc(null);
+      setSigmaActual(0);
     } catch (e) {
       setErrorInfo({ mensaje: e.message });
     } finally {
@@ -101,6 +140,7 @@ export default function App() {
     setPasos([]);
     setErrorInfo(null);
     setResultadoFnc(null);
+    setSigmaActual(0);
   }
 
   const acciones = {
@@ -120,7 +160,7 @@ export default function App() {
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <div>
             <p className="font-mono text-xs uppercase tracking-wide text-blueprint-mist">
-              Teoría de la Computación · Microproyecto 1
+              Teoría de la Computación · By Diego Alvarez, Diego Marquez y Juan Quintero
             </p>
             <h1 className="mt-1 text-xl font-semibold">
               Depurador de Gramáticas → Forma Normal de Chomsky
@@ -140,7 +180,7 @@ export default function App() {
           />
 
           {gramaticaOriginal && (
-            <GrammarPanel gramatica={gramaticaOriginal} titulo="Gramática original" />
+            <GrammarPanel gramatica={gramaticaOriginal} titulo="Gramática original" sigma={0} />
           )}
         </div>
 
@@ -176,7 +216,11 @@ export default function App() {
                 </div>
               )}
 
-              <GrammarPanel gramatica={gramaticaActual} titulo="Gramática actual" />
+              <GrammarPanel
+                gramatica={gramaticaActual}
+                titulo="Gramática actual"
+                sigma={sigmaActual}
+              />
 
               <HistorialTimeline pasos={pasos} />
             </>

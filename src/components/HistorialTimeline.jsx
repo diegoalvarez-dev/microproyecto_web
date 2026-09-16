@@ -1,3 +1,5 @@
+import ChomskyStepView from "./ChomskyStepView.jsx";
+
 function listaProducciones(producciones) {
   const filas = [];
   for (const variable of Object.keys(producciones)) {
@@ -23,44 +25,63 @@ function Chip({ children, tono = "neutro" }) {
   );
 }
 
+function EtiquetaSigma({ sigmaAntes, sigmaDespues }) {
+  if (sigmaAntes == null || sigmaDespues == null) return null;
+  const cambio = sigmaAntes !== sigmaDespues;
+  return (
+    <span className="font-mono text-xs text-blueprint-mist">
+      Σ{sigmaAntes} {cambio ? `→ Σ${sigmaDespues}` : "(sin cambios)"}
+    </span>
+  );
+}
+
 function PasoCard({ paso, numero }) {
+  const esChomsky = Boolean(paso.detalleChomsky && paso.detalleChomsky.length > 0);
+
   return (
     <div className="rounded-lg border border-blueprint-line bg-blueprint-panel/40 p-4">
-      <div className="mb-3 flex items-center gap-2">
+      <div className="mb-3 flex flex-wrap items-center gap-2">
         <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-amber font-mono text-xs font-bold text-blueprint-deep">
           {numero}
         </span>
         <h4 className="text-sm font-semibold text-paper">{paso.fase}</h4>
+        <span className="ml-auto">
+          <EtiquetaSigma sigmaAntes={paso.sigmaAntes} sigmaDespues={paso.sigmaDespues} />
+        </span>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
-            Antes
-          </p>
-          <div className="space-y-0.5 font-mono text-xs text-paper/70">
-            {listaProducciones(paso.gramaticaAntes.producciones).map((f) => (
-              <div key={f.variable}>
-                <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
-              </div>
-            ))}
+      {esChomsky ? (
+        <ChomskyStepView detalle={paso.detalleChomsky} />
+      ) : (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
+              Antes
+            </p>
+            <div className="space-y-0.5 font-mono text-xs text-paper/70">
+              {listaProducciones(paso.gramaticaAntes.producciones).map((f) => (
+                <div key={f.variable}>
+                  <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
+              Después
+            </p>
+            <div className="space-y-0.5 font-mono text-xs text-paper/90">
+              {listaProducciones(paso.gramaticaDespues.producciones).map((f) => (
+                <div key={f.variable}>
+                  <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
+                </div>
+              ))}
+            </div>
           </div>
         </div>
-        <div>
-          <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
-            Después
-          </p>
-          <div className="space-y-0.5 font-mono text-xs text-paper/90">
-            {listaProducciones(paso.gramaticaDespues.producciones).map((f) => (
-              <div key={f.variable}>
-                <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
+      )}
 
-      {(paso.elementosIdentificados?.length > 0 ||
+      {!esChomsky && (paso.elementosIdentificados?.length > 0 ||
         paso.produccionesEliminadas?.length > 0 ||
         paso.produccionesAgregadas?.length > 0) && (
         <div className="mt-3 flex flex-col gap-1.5 border-t border-blueprint-line pt-3">

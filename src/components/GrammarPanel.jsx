@@ -3,7 +3,7 @@
  * V, T, S y las producciones en fuente monoespaciada, tal como se
  * verian en el tablero de un curso de teoria de la computacion.
  */
-export default function GrammarPanel({ gramatica, titulo = "Gramática actual" }) {
+export default function GrammarPanel({ gramatica, titulo = "Gramática actual", sigma }) {
   if (!gramatica) return null;
 
   const { variables, terminales, inicial, producciones, texto } = gramatica;
@@ -11,9 +11,16 @@ export default function GrammarPanel({ gramatica, titulo = "Gramática actual" }
   return (
     <div className="rounded-lg border border-blueprint-line bg-blueprint-panel/60 p-5">
       <div className="mb-4 flex items-center justify-between">
-        <h3 className="font-mono text-xs uppercase tracking-wide text-blueprint-mist">
-          {titulo}
-        </h3>
+        <div className="flex items-center gap-2">
+          <h3 className="font-mono text-xs uppercase tracking-wide text-blueprint-mist">
+            {titulo}
+          </h3>
+          {sigma != null && (
+            <span className="rounded border border-amber/40 bg-amber/10 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-amber">
+              Σ{sigma}
+            </span>
+          )}
+        </div>
         <span className="font-mono text-xs text-paper/40">
           G = ({variables.join(", ")}, {inicial}, {"{"}
           {terminales.join(", ")}

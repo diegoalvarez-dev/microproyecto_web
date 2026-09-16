@@ -17,13 +17,19 @@ class PasoHistorial:
     """Representa un unico paso/fase del proceso de transformacion."""
 
     def __init__(self, fase, gramatica_antes, elementos_identificados,
-                 producciones_eliminadas, producciones_agregadas, gramatica_despues):
+                 producciones_eliminadas, producciones_agregadas, gramatica_despues,
+                 detalle=None):
         self.fase = fase
         self.gramatica_antes = gramatica_antes
         self.elementos_identificados = elementos_identificados
         self.producciones_eliminadas = producciones_eliminadas
         self.producciones_agregadas = producciones_agregadas
         self.gramatica_despues = gramatica_despues
+        # 'detalle' es opcional: solo lo usa la fase de Chomsky
+        # (binarizacion) para mostrar el desglose paso a paso al
+        # estilo cuaderno (circulos = producciones que van directo a
+        # la variable, chulos = variables auxiliares nuevas creadas).
+        self.detalle = detalle
 
     def __str__(self):
         """Formatea el paso para impresion en consola (RF18)."""
@@ -61,7 +67,8 @@ class Historial:
         self.pasos = []
 
     def registrar(self, fase, gramatica_antes, elementos_identificados,
-                  producciones_eliminadas, producciones_agregadas, gramatica_despues):
+                  producciones_eliminadas, producciones_agregadas, gramatica_despues,
+                  detalle=None):
         """Crea y agrega un nuevo PasoHistorial a la lista."""
         paso = PasoHistorial(
             fase=fase,
@@ -70,6 +77,7 @@ class Historial:
             producciones_eliminadas=producciones_eliminadas,
             producciones_agregadas=producciones_agregadas,
             gramatica_despues=gramatica_despues,
+            detalle=detalle,
         )
         self.pasos.append(paso)
         return paso

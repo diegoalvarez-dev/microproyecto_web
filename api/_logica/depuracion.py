@@ -212,11 +212,17 @@ def _generar_combinaciones_sin_anulables(produccion, posiciones_anulables):
     de simbolos anulables dentro de ella, genera todas las variantes
     posibles quitando subconjuntos de esas posiciones.
 
+    Se devuelve como LISTA (no set) para preservar un orden
+    deterministico: primero r=0 (la produccion original, sin quitar
+    nada), luego r=1,2,3... (quitando progresivamente mas simbolos
+    anulables). Con un set, Python no garantiza ningun orden
+    consistente, lo que desordenaba el resultado final.
+
     Retorna:
-        set[tuple]: conjunto de variantes (puede incluir la tupla
-        vacia () si se quitan TODOS los simbolos).
+        list[tuple]: lista de variantes, sin duplicados (puede incluir
+        la tupla vacia () si se quitan TODOS los simbolos).
     """
-    variantes = set()
+    variantes = []
     n = len(posiciones_anulables)
 
     for r in range(n + 1):
@@ -225,7 +231,8 @@ def _generar_combinaciones_sin_anulables(produccion, posiciones_anulables):
             nueva = tuple(
                 simbolo for i, simbolo in enumerate(produccion) if i not in quitar
             )
-            variantes.add(nueva)
+            if nueva not in variantes:
+                variantes.append(nueva)
 
     return variantes
 
@@ -314,17 +321,26 @@ def obtener_pares_unitarios(gramatica):
 
 
 def _cierre_unitario(gramatica, variable):
-    """Cierre unitario: variables alcanzables solo via producciones unitarias."""
-    cierre = {variable}
+    """
+    Cierre unitario: variables alcanzables solo via producciones
+    unitarias. Se devuelve como LISTA (no set), preservando orden:
+    la variable misma siempre queda primera (para que sus propias
+    producciones se mantengan primero al fusionar), y las demas en
+    el orden en que se van descubriendo. Esto evita que el orden
+    final de las producciones quede aleatorio.
+    """
+    cierre = [variable]
+    vistos = {variable}
     pendientes = [variable]
 
     while pendientes:
-        actual = pendientes.pop()
+        actual = pendientes.pop(0)
         for produccion in gramatica.producciones.get(actual, []):
             if len(produccion) == 1 and produccion[0] in gramatica.variables:
                 destino = produccion[0]
-                if destino not in cierre:
-                    cierre.add(destino)
+                if destino not in vistos:
+                    vistos.add(destino)
+                    cierre.append(destino)
                     pendientes.append(destino)
 
     return cierre
@@ -340,7 +356,13 @@ def eliminar_producciones_unitarias(gramatica, historial=None):
     producciones_agregadas = []
 
     nuevas_producciones = {}
-    for variable in nueva.variables:
+    # IMPORTANTE: se itera sobre nueva.producciones (un diccionario,
+    # que preserva el orden de insercion original) y NO sobre
+    # nueva.variables (un set, cuyo orden de iteracion no esta
+    # garantizado y puede variar entre ejecuciones de Python). Esto
+    # asegura que el orden de las variables se mantenga estable y
+    # coincida con el orden original de la gramatica.
+    for variable in nueva.producciones:
         cierre = _cierre_unitario(nueva, variable)
         producciones_finales = []
 
