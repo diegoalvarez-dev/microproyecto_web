@@ -1,4 +1,5 @@
 import ChomskyStepView from "./ChomskyStepView.jsx";
+import { formatearEncabezadoG } from "../lib/gramaticaUtils.js";
 
 function listaProducciones(producciones) {
   const filas = [];
@@ -58,6 +59,9 @@ function PasoCard({ paso, numero }) {
             <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
               Antes
             </p>
+            <p className="mb-2 font-mono text-[11px] text-paper/40">
+              {formatearEncabezadoG(paso.gramaticaAntes)}
+            </p>
             <div className="space-y-0.5 font-mono text-xs text-paper/70">
               {listaProducciones(paso.gramaticaAntes.producciones).map((f) => (
                 <div key={f.variable}>
@@ -69,6 +73,9 @@ function PasoCard({ paso, numero }) {
           <div>
             <p className="mb-1.5 font-mono text-[11px] uppercase tracking-wide text-paper/40">
               Después
+            </p>
+            <p className="mb-2 font-mono text-[11px] text-paper/40">
+              {formatearEncabezadoG(paso.gramaticaDespues)}
             </p>
             <div className="space-y-0.5 font-mono text-xs text-paper/90">
               {listaProducciones(paso.gramaticaDespues.producciones).map((f) => (

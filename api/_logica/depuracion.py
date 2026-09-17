@@ -242,14 +242,14 @@ def eliminar_producciones_nulas(gramatica, historial=None):
     Elimina las producciones nulas, generando las combinaciones
     necesarias de producciones donde se omite cada variable anulable.
 
-    Caso especial: si el simbolo inicial es anulable, se conserva
-    S -> nula (RNF07).
+    La produccion nula se elimina de TODAS las variables sin
+    excepcion, incluida la variable inicial (no se conserva
+    "S -> lambda" como caso especial).
     """
     gramatica_antes = gramatica.copia()
     nueva = gramatica.copia()
 
     anulables = obtener_variables_anulables(nueva)
-    inicial_es_anulable = nueva.inicial in anulables
 
     producciones_eliminadas = []
     producciones_agregadas = []
@@ -288,10 +288,6 @@ def eliminar_producciones_nulas(gramatica, historial=None):
         nuevas_producciones[variable] = nuevas_de_variable
 
     nueva.producciones = nuevas_producciones
-
-    if inicial_es_anulable:
-        nueva.agregar_produccion(nueva.inicial, nueva.NULA)
-        producciones_agregadas.append(f"{nueva.inicial} -> λ (caso especial)")
 
     if historial is not None:
         historial.registrar(
@@ -371,10 +367,11 @@ def eliminar_producciones_unitarias(gramatica, historial=None):
                 if len(produccion) == 1 and produccion[0] in nueva.variables:
                     continue  # se descarta, ya esta representada por el cierre
                 if produccion == nueva.NULA and var_en_cierre != variable:
-                    # El caso especial "nula" (epsilon del simbolo inicial)
-                    # NO debe propagarse a otras variables a traves del
-                    # cierre unitario; es exclusivo de quien la tenga
-                    # como produccion propia.
+                    # Una produccion nula NO se propaga a otras variables a
+                    # traves del cierre unitario. No hace falta copiarla:
+                    # si la fase de nulas corre despues, la eliminara de
+                    # todas formas; si corrio antes (orden invertido por
+                    # ciclos), ya no deberia quedar ninguna nula presente.
                     continue
                 if produccion not in producciones_finales:
                     producciones_finales.append(produccion)

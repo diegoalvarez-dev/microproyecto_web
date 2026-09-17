@@ -33,6 +33,18 @@ export function formatearProduccion(tupla) {
   return tupla.join("");
 }
 
+/**
+ * Formatea el encabezado "G = ({A, B, C}, A, {1, 2}, P)" de una
+ * gramatica (formato JSON del backend: variables, terminales,
+ * inicial). El conjunto de no terminales SI incluye la inicial
+ * (es matematicamente parte de V), y ademas se muestra por separado
+ * como el simbolo S, tal como exige la definicion formal G=(V,T,S,P).
+ */
+export function formatearEncabezadoG(gramatica) {
+  const { variables, terminales, inicial } = gramatica;
+  return `G = ({${variables.join(", ")}}, ${inicial}, {${terminales.join(", ")}}, P)`;
+}
+
 /** Convierte "A, B, C" o "A B C" en ["A","B","C"] */
 export function parsearSimbolos(texto) {
   return texto

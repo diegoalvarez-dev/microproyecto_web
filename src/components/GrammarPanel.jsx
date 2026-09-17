@@ -1,3 +1,5 @@
+import { formatearEncabezadoG } from "../lib/gramaticaUtils.js";
+
 /**
  * Muestra la gramatica actual en formato "esquema tecnico": lista de
  * V, T, S y las producciones en fuente monoespaciada, tal como se
@@ -6,7 +8,7 @@
 export default function GrammarPanel({ gramatica, titulo = "Gramática actual", sigma }) {
   if (!gramatica) return null;
 
-  const { variables, terminales, inicial, producciones, texto } = gramatica;
+  const { inicial, producciones } = gramatica;
 
   return (
     <div className="rounded-lg border border-blueprint-line bg-blueprint-panel/60 p-5">
@@ -22,11 +24,7 @@ export default function GrammarPanel({ gramatica, titulo = "Gramática actual", 
           )}
         </div>
         <span className="font-mono text-xs text-paper/40">
-          G = ({"{"}
-          {variables.filter((v) => v !== inicial).join(", ")}
-          {"}"}, {inicial}, {"{"}
-          {terminales.join(", ")}
-          {"}"}, P)
+          {formatearEncabezadoG(gramatica)}
         </span>
       </div>
 
