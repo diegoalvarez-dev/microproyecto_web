@@ -42,7 +42,7 @@ export function formatearProduccion(tupla) {
  */
 export function formatearEncabezadoG(gramatica) {
   const { variables, terminales, inicial } = gramatica;
-  return `G = ({${variables.join(", ")}}, ${inicial}, {${terminales.join(", ")}}, P)`;
+  return `G = ({${variables.join(", ")}}, ${inicial}, {${terminales.join(", ")}}, Σ)`;
 }
 
 /** Convierte "A, B, C" o "A B C" en ["A","B","C"] */

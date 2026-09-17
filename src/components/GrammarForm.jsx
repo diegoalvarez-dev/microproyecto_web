@@ -72,7 +72,7 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
       >
       <div>
         <h2 className="font-mono text-xs uppercase tracking-wide text-blueprint-mist">
-          G = (V, T, S, P)
+          G = (V, T, S, Σ)
         </h2>
         <p className="mt-1 text-sm text-paper/70">
           Registra los componentes de tu Gramática Libre de Contexto.
