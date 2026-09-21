@@ -237,57 +237,55 @@ def _generar_combinaciones_sin_anulables(produccion, posiciones_anulables):
     return variantes
 
 
-def eliminar_producciones_nulas(gramatica, historial=None):
+def eliminar_producciones_nulas(gramatica, historial=None, _nivel_reintento=0):
     """
-    Elimina las producciones nulas, UNA VARIABLE ANULABLE A LA VEZ
-    (no todas de un solo golpe). Por cada variable con produccion
-    lambda directa se registra un PASO independiente de historial:
+    Elimina las producciones nulas, UNA VARIABLE ANULABLE A LA VEZ.
 
-        1. Se elimina esa lambda (variable -> λ) de una vez, en el
-           mismo paso (no se deja para un paso de "limpieza" final).
-        2. Se propaga su desaparicion a TODAS las producciones de
-           TODA la gramatica que la contengan (incluidas las de la
-           propia variable), generando las combinaciones necesarias
-           y evitando duplicados.
+    La produccion nula se elimina de TODAS las variables, SIN
+    excepcion (incluida la variable inicial: no se conserva ningun
+    "S -> lambda" como caso especial).
 
-    Si al propagar, alguna OTRA variable queda con una nueva
-    produccion vacia (una variable que se volvio anulable de forma
-    indirecta, ej. D -> A y A se anula => D tambien se anula), esa
-    variable se encola para procesarse en un paso posterior (nunca en
-    el mismo paso).
+    DETECCION DE CICLOS QUE EMERGEN A MITAD DE PROCESO:
+    Un ciclo de unitarias entre variables anulables (ej. A tiene la
+    produccion B, B tiene la produccion A, ambas anulables) puede no
+    existir al PRINCIPIO de este proceso, sino aparecer recien a
+    mitad de camino (ej. "BB" se reduce a "B" al quitar una nula, y
+    ESO crea la unitaria A->B que, combinada con B->A ya existente,
+    forma el ciclo). Por eso no basta con revisar si hay ciclo una
+    sola vez al inicio: hay que vigilarlo durante todo el proceso.
 
-    El orden de procesamiento es el orden de aparicion de las
-    variables en la gramatica; las que se descubren indirectamente se
-    procesan despues de las que ya estaban en cola.
+    La señal de que hay un ciclo es: una variable que YA fue
+    procesada (se le quito su lambda propia) vuelve a necesitar
+    procesarse OTRA VEZ (le resurgio una lambda nueva). Si eso pasa,
+    se detiene el barrido de nulas en ese punto, se ejecuta UNA
+    pasada de eliminacion de unitarias (que fusiona las producciones
+    de A y B, rompiendo la dependencia mutua), y se vuelve a intentar
+    eliminar nulas desde ese nuevo estado. Esto se repite hasta que
+    ya no queden nulas o hasta un limite de seguridad.
     """
+    LIMITE_REPROCESOS = 1
+    LIMITE_REINTENTOS_GLOBALES = 8
+
     nueva = gramatica.copia()
 
-    procesadas = set()
-    pendientes = [
-        v for v in nueva.producciones if nueva.NULA in nueva.producciones[v]
-    ]
+    veces_procesada = {}
+    pendientes = [v for v in nueva.producciones if nueva.NULA in nueva.producciones[v]]
+    ciclo_detectado = False
 
     while pendientes:
         variable = pendientes.pop(0)
-        if variable in procesadas:
-            continue
         if nueva.NULA not in nueva.producciones.get(variable, []):
             continue
-        procesadas.add(variable)
+
+        veces_procesada[variable] = veces_procesada.get(variable, 0) + 1
 
         gramatica_antes = nueva.copia()
-
-        # 1. Se quita la lambda propia de 'variable' de una vez.
-        nueva.producciones[variable] = [
-            p for p in nueva.producciones[variable] if p != nueva.NULA
-        ]
+        nueva.producciones[variable] = [p for p in nueva.producciones[variable] if p != nueva.NULA]
 
         producciones_eliminadas = [f"{variable} -> λ"]
         producciones_agregadas = []
         nuevos_pendientes = []
 
-        # 2. Se propaga la desaparicion de 'variable' a TODA la
-        #    gramatica (incluida ella misma).
         nuevas_producciones = {}
         for var_afectada, lista in nueva.producciones.items():
             original = set(lista)
@@ -304,31 +302,25 @@ def eliminar_producciones_nulas(gramatica, historial=None):
 
                 for variante in variantes:
                     if variante == nueva.NULA and var_afectada == variable:
-                        # Una autoproduccion remanente (ej. "C -> C",
-                        # creada en un paso anterior) NO puede
-                        # regenerar la lambda propia de 'variable'
-                        # dentro de su propio paso: esa lambda ya se
-                        # elimino explicitamente arriba.
                         continue
                     if variante not in nuevas_de_var:
                         nuevas_de_var.append(variante)
 
-            # Solo se reporta como "agregada" lo que de verdad es nuevo
-            # respecto a las producciones ORIGINALES de esa variable
-            # (evita marcar como agregada una produccion que ya
-            # existia de antes y que el proceso simplemente volvio a
-            # generar, ej. ABC o BC si A -> ABAC/ABC/BC/... ).
             for p in nuevas_de_var:
                 if p in original:
                     continue
                 if p == nueva.NULA:
                     producciones_agregadas.append(f"{var_afectada} -> λ")
-                    if (
-                        var_afectada not in procesadas
-                        and var_afectada not in pendientes
-                        and var_afectada not in nuevos_pendientes
-                    ):
-                        nuevos_pendientes.append(var_afectada)
+                    if var_afectada not in pendientes and var_afectada not in nuevos_pendientes:
+                        if veces_procesada.get(var_afectada, 0) >= LIMITE_REPROCESOS:
+                            # Esta variable ya se proceso antes y esta
+                            # a punto de necesitar OTRA vez: es un
+                            # ciclo real (dependencia mutua tipo
+                            # unitaria) que puede haber emergido recien
+                            # a mitad de este proceso.
+                            ciclo_detectado = True
+                        else:
+                            nuevos_pendientes.append(var_afectada)
                 else:
                     producciones_agregadas.append(
                         f"{var_afectada} -> {formatear_produccion(p)}"
@@ -349,6 +341,19 @@ def eliminar_producciones_nulas(gramatica, historial=None):
                 gramatica_despues=nueva.copia(),
             )
 
+        if ciclo_detectado:
+            break
+
+    if ciclo_detectado and _nivel_reintento < LIMITE_REINTENTOS_GLOBALES:
+        # Se rompe el ciclo fusionando las producciones unitarias
+        # implicadas, y se reintenta eliminar las nulas restantes
+        # desde este nuevo estado (recalculando todo desde cero).
+        nueva = eliminar_producciones_unitarias(nueva, historial)
+        return eliminar_producciones_nulas(
+            nueva, historial,
+            _nivel_reintento=_nivel_reintento + 1,
+        )
+
     return nueva
 
 
@@ -357,7 +362,7 @@ def eliminar_producciones_nulas(gramatica, historial=None):
 # ----------------------------------------------------------------------
 
 def obtener_pares_unitarios(gramatica):
-    """Identifica todas las producciones unitarias (A -> B)."""
+    """Identifica todas las producciones unitarias ACTUALES (A -> B)."""
     pares = []
     for variable, lista_producciones in gramatica.producciones.items():
         for produccion in lista_producciones:
@@ -366,95 +371,66 @@ def obtener_pares_unitarios(gramatica):
     return pares
 
 
-def _cierre_unitario(gramatica, variable):
-    """
-    Cierre unitario: variables alcanzables solo via producciones
-    unitarias. Se devuelve como LISTA (no set), preservando orden:
-    la variable misma siempre queda primera (para que sus propias
-    producciones se mantengan primero al fusionar), y las demas en
-    el orden en que se van descubriendo. Esto evita que el orden
-    final de las producciones quede aleatorio.
-    """
-    cierre = [variable]
-    vistos = {variable}
-    pendientes = [variable]
-
-    while pendientes:
-        actual = pendientes.pop(0)
-        for produccion in gramatica.producciones.get(actual, []):
-            if len(produccion) == 1 and produccion[0] in gramatica.variables:
-                destino = produccion[0]
-                if destino not in vistos:
-                    vistos.add(destino)
-                    cierre.append(destino)
-                    pendientes.append(destino)
-
-    return cierre
-
-
 def eliminar_producciones_unitarias(gramatica, historial=None):
     """
-    Elimina las producciones unitarias usando el cierre unitario de
-    cada variable, UNA VARIABLE DE ORIGEN A LA VEZ (no todas de un
-    solo golpe). Por cada variable que tenga al menos una produccion
-    unitaria directa se registra un PASO independiente de historial.
+    Elimina las producciones unitarias, UNA VARIABLE ORIGEN A LA VEZ
+    (un paso de historial por variable que tenga alguna unitaria
+    directa), sustituyendo cada "variable -> destino" por las
+    producciones NO unitarias que "destino" tiene EN ESE MOMENTO (el
+    estado actual de la gramatica cuando le toca el turno a
+    "variable") — SIN seguir la cadena mas alla de ese nivel.
 
-    Si una misma variable tiene VARIAS producciones unitarias propias
-    (ej. A -> B y A -> C), ambas se resuelven JUNTAS en un solo paso
-    (el cierre unitario de A ya las cubre a las dos de una vez); lo
-    que se hace secuencial, paso a paso, es cada VARIABLE DE ORIGEN
-    distinta, en el orden en que aparecen en la gramatica. Cada paso
-    parte de la gramatica ya actualizada por el paso anterior.
+    Ejemplo: B -> D, D -> E. Al turno de B (que ocurre antes que el
+    de D, siguiendo el orden de las variables), D todavia tiene su
+    propia unitaria "D -> E" sin resolver, asi que a B solo se le
+    copian las producciones NO unitarias que D YA tenia en ese
+    momento (ej. D -> EA / 2), sin llegar hasta E. Cuando mas
+    adelante le toque el turno a D, D si se resuelve usando las
+    producciones de E — pero eso NO vuelve a tocar a B despues (no
+    hay ningun paso de "actualizacion").
+
+    Si varias unitarias parten de la MISMA variable origen (ej.
+    A -> B y A -> C), se resuelven JUNTAS en un solo paso.
     """
     nueva = gramatica.copia()
 
-    # IMPORTANTE: se itera sobre nueva.producciones (un diccionario,
-    # que preserva el orden de insercion original) y NO sobre
-    # nueva.variables (un set, cuyo orden de iteracion no esta
-    # garantizado). Esto asegura que el orden de las variables se
-    # mantenga estable y coincida con el orden original de la
-    # gramatica.
-    orden_variables = list(nueva.producciones.keys())
-
-    for variable in orden_variables:
-        pares_variable = [
-            p for p in nueva.producciones.get(variable, [])
-            if len(p) == 1 and p[0] in nueva.variables
+    for variable in list(nueva.producciones.keys()):
+        lista_actual = nueva.producciones.get(variable, [])
+        unitarias_directas = [
+            p for p in lista_actual if len(p) == 1 and p[0] in nueva.variables
         ]
-        if not pares_variable:
-            continue  # esta variable no tiene unitarias propias, no genera paso
+        if not unitarias_directas:
+            continue
 
         gramatica_antes = nueva.copia()
+        destinos_directos = []
+        for p in unitarias_directas:
+            if p[0] not in destinos_directos:
+                destinos_directos.append(p[0])
 
-        producciones_eliminadas = [f"{variable} -> {p[0]}" for p in pares_variable]
+        nueva_lista = [p for p in lista_actual if p not in unitarias_directas]
         producciones_agregadas = []
 
-        cierre = _cierre_unitario(nueva, variable)
-        producciones_finales = []
-
-        for var_en_cierre in cierre:
-            for produccion in nueva.producciones.get(var_en_cierre, []):
+        for destino in destinos_directos:
+            for produccion in nueva.producciones.get(destino, []):
                 if len(produccion) == 1 and produccion[0] in nueva.variables:
-                    continue  # se descarta, ya esta representada por el cierre
-                if produccion == nueva.NULA and var_en_cierre != variable:
-                    # Una produccion nula NO se propaga a otras variables a
-                    # traves del cierre unitario.
-                    continue
-                if produccion not in producciones_finales:
-                    producciones_finales.append(produccion)
-                    if var_en_cierre != variable:
-                        producciones_agregadas.append(
-                            f"{variable} -> {formatear_produccion(produccion)}"
-                        )
+                    continue  # unitaria propia de "destino": se resuelve en SU turno
+                if produccion == nueva.NULA and destino != variable:
+                    continue  # una nula no se propaga entre variables distintas
+                if produccion not in nueva_lista:
+                    nueva_lista.append(produccion)
+                    producciones_agregadas.append(
+                        f"{variable} -> {formatear_produccion(produccion)}"
+                    )
 
-        nueva.producciones[variable] = producciones_finales
+        nueva.producciones[variable] = nueva_lista
 
         if historial is not None:
             historial.registrar(
                 fase=f"Eliminación de producción(es) unitaria(s) de {variable}",
                 gramatica_antes=gramatica_antes,
-                elementos_identificados=[f"{variable} -> {p[0]}" for p in pares_variable],
-                producciones_eliminadas=producciones_eliminadas,
+                elementos_identificados=[f"{variable} -> {d}" for d in destinos_directos],
+                producciones_eliminadas=[f"{variable} -> {d}" for d in destinos_directos],
                 producciones_agregadas=producciones_agregadas,
                 gramatica_despues=nueva.copia(),
             )
@@ -508,24 +484,18 @@ def depurar_gramatica(gramatica, historial=None):
     Ejecuta el proceso completo de depuracion:
         1. Eliminar variables inutiles
         2. Eliminar variables inalcanzables
-        3. Decidir orden nulas/unitarias segun si hay ciclo
-        4. Eliminar nulas y unitarias en el orden decidido
-           (con limpieza extra si se invirtio el orden)
+        3. Eliminar producciones nulas (variable por variable; esta
+           funcion se encarga internamente de detectar y romper
+           cualquier ciclo con unitarias que surja, incluso si
+           aparece a mitad de proceso).
+        4. Limpieza final de producciones unitarias (por si queda
+           alguna que no haya sido parte de un ciclo con nulas).
     """
     actual = gramatica.copia()
 
     actual = eliminar_variables_inutiles(actual, historial)
     actual = eliminar_variables_inalcanzables(actual, historial)
-
-    hay_ciclo = existe_ciclo_unitarias_entre_anulables(actual)
-
-    if hay_ciclo:
-        actual = eliminar_producciones_unitarias(actual, historial)
-        actual = eliminar_producciones_nulas(actual, historial)
-        if obtener_pares_unitarios(actual):
-            actual = eliminar_producciones_unitarias(actual, historial)
-    else:
-        actual = eliminar_producciones_nulas(actual, historial)
-        actual = eliminar_producciones_unitarias(actual, historial)
+    actual = eliminar_producciones_nulas(actual, historial)
+    actual = eliminar_producciones_unitarias(actual, historial)
 
     return actual
