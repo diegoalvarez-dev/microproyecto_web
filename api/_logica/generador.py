@@ -13,9 +13,18 @@ los distintos casos que se practican en el microproyecto:
     - producciones unitarias (A -> B)
     - producciones de longitud variable (para practicar Chomsky)
 
-Ahora soporta tres niveles de dificultad (facil, medio, dificil) que
+Soporta tres niveles de dificultad (facil, medio, dificil) que
 ajustan cuantas variables/terminales se usan y que tan frecuentes son
 los casos "especiales" (nulas, unitarias, simbolos fantasma).
+
+IMPORTANTE: se garantiza que el simbolo INICIAL nunca quede anulable
+(que no pueda derivar la cadena vacia, ni directa ni indirectamente a
+traves de otras variables anulables). Si el inicial fuera anulable, el
+proceso de depuracion conserva legitimamente "inicial -> λ" hasta el
+final, lo que haria que la Forma Normal de Chomsky resultante del
+ejercicio terminara con una produccion nula - justo lo que se quiere
+evitar en los ejercicios de practica (todos deben poder resolverse
+limpio, sin nulas sobreviviendo hasta la FNC).
 """
 
 import random
@@ -25,8 +34,7 @@ LETRAS_FANTASMA = list("FGH")       # simbolos NO declarados, a proposito
 TERMINALES_DISPONIBLES = ["1", "2", "3"]
 
 # Configuracion de cada nivel de dificultad. "medio" conserva los
-# mismos valores que tenia el generador original (comportamiento sin
-# cambios si no se especifica dificultad).
+# mismos valores que tenia el generador original.
 NIVELES_DIFICULTAD = {
     "facil": {
         "num_variables": (3, 3),
@@ -63,18 +71,50 @@ NIVELES_DIFICULTAD = {
     },
 }
 
+# Cuantas veces se reintenta generar una gramatica completa cuando el
+# simbolo inicial resulta anulable, antes de recurrir al fallback de
+# seguridad.
+MAX_INTENTOS_SIN_NULA_INICIAL = 40
+
 
 def generar_gramatica_aleatoria(dificultad="medio"):
     """
     Construye una gramatica aleatoria en el mismo formato JSON que
     espera gramatica_desde_json() (variables, terminales, inicial,
-    producciones como listas de listas de simbolos).
+    producciones como listas de listas de simbolos), garantizando
+    que el simbolo inicial no sea anulable.
 
     dificultad: "facil", "medio" o "dificil". Cualquier otro valor
     (o None) cae de vuelta a "medio".
     """
     config = NIVELES_DIFICULTAD.get(dificultad, NIVELES_DIFICULTAD["medio"])
 
+    for _ in range(MAX_INTENTOS_SIN_NULA_INICIAL):
+        data = _generar_intento(config)
+        anulables = _calcular_anulables(data["producciones"])
+        if data["inicial"] not in anulables:
+            return data
+
+    # Fallback de seguridad (muy improbable que se llegue aqui con los
+    # limites de intentos actuales): se toma el ultimo intento y se
+    # eliminan, SOLO de las producciones propias del simbolo inicial,
+    # aquellas que lo hacen anulable (vacias, o compuestas unicamente
+    # por variables anulables). La produccion base de puros
+    # terminales SIEMPRE se genera y nunca es anulable, asi que el
+    # inicial queda garantizado con al menos una produccion valida.
+    data = _generar_intento(config)
+    anulables = _calcular_anulables(data["producciones"])
+    inicial = data["inicial"]
+    if inicial in anulables:
+        data["producciones"][inicial] = [
+            p for p in data["producciones"][inicial]
+            if len(p) > 0 and not all(s in anulables for s in p)
+        ]
+    return data
+
+
+def _generar_intento(config):
+    """Genera UNA gramatica aleatoria completa (sin validar anulabilidad del inicial)."""
     num_variables = random.randint(*config["num_variables"])
     variables = LETRAS_VARIABLES[:num_variables]
 
@@ -113,9 +153,32 @@ def generar_gramatica_aleatoria(dificultad="medio"):
     }
 
 
-def _generar_producciones_de_variable(
-    variable, variables, terminales, usar_fantasma, simbolo_fantasma, config
-):
+def _calcular_anulables(producciones):
+    """
+    Calcula el conjunto de variables anulables (las que pueden derivar
+    la cadena vacia), con el algoritmo estandar de punto fijo: una
+    variable es anulable si tiene una produccion vacia, o una
+    produccion compuesta UNICAMENTE por variables que ya son
+    anulables. Los terminales y simbolos fantasma nunca entran a este
+    conjunto (no son llaves de "producciones"), asi que cualquier
+    produccion que contenga alguno nunca aporta anulabilidad.
+    """
+    anulables = set()
+    cambio = True
+    while cambio:
+        cambio = False
+        for variable, lista in producciones.items():
+            if variable in anulables:
+                continue
+            for produccion in lista:
+                if len(produccion) == 0 or all(s in anulables for s in produccion):
+                    anulables.add(variable)
+                    cambio = True
+                    break
+    return anulables
+
+
+def _generar_producciones_de_variable(variable, variables, terminales, usar_fantasma, simbolo_fantasma, config):
     alfabeto = variables + terminales
     otras_variables = [v for v in variables if v != variable]
 
@@ -157,6 +220,9 @@ def _generar_producciones_de_variable(
     # TODAS, dejando un ejercicio vacio e inutil para practicar. Los
     # casos de "inutil" que SI se quieren practicar (variable sin
     # producciones, simbolo fantasma) siguen intactos: no se tocan.
+    # Ademas, esta produccion de puros terminales NUNCA es anulable,
+    # lo que ayuda a que la verificacion de "inicial no anulable" se
+    # cumpla rapido en la mayoria de los intentos.
     longitud_base = random.choice([1, 1, 2])  # mayoria de longitud 1
     produccion_base = [random.choice(terminales) for _ in range(longitud_base)]
     if produccion_base not in lista:
