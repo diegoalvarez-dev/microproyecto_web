@@ -87,5 +87,5 @@ export const api = {
   unitarias: (g) => llamarApi("unitarias", g),
   chomsky: (g) => llamarApi("chomsky", g),
   completo: (g) => llamarApi("completo", g),
-  generar: () => llamarApiGet("generar"),
+  generar: (dificultad = "medio") => llamarApiGet(`generar?dificultad=${dificultad}`),
 };

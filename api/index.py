@@ -167,9 +167,14 @@ def endpoint_generar():
     Genera una gramatica aleatoria de practica. El estudiante puede
     intentar resolverla a mano y luego comparar con "Ejecutar proceso
     completo".
+
+    Acepta un query param opcional "dificultad" (facil | medio | dificil).
+    Si no se envia, o se envia un valor no reconocido, se usa "medio".
     """
+    dificultad = request.args.get("dificultad", "medio")
+
     for _ in range(20):  # margen de seguridad, casi siempre valida al primer intento
-        data = generar_gramatica_aleatoria()
+        data = generar_gramatica_aleatoria(dificultad)
         gramatica = gramatica_desde_json(data)
         valida, _ = validar_gramatica(gramatica)
         if valida:

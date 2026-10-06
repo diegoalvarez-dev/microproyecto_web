@@ -117,11 +117,11 @@ export default function App() {
     }
   }
 
-  async function generarEjercicio() {
+ async function generarEjercicio(dificultad) {
     setGenerando(true);
     setErrorInfo(null);
     try {
-      const resp = await api.generar();
+      const resp = await api.generar(dificultad);
       setGramaticaOriginal(resp.gramatica);
       setGramaticaActual(resp.gramatica);
       setPasos([]);

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { parsearSimbolos, parsearProducciones } from "../lib/gramaticaUtils.js";
 
+const NIVELES = [
+  { valor: "facil", etiqueta: "Fácil" },
+  { valor: "medio", etiqueta: "Medio" },
+  { valor: "dificil", etiqueta: "Difícil" },
+];
+
 /**
  * Formulario de ingreso de la gramatica: variables, terminales,
  * simbolo inicial, y un campo de producciones por cada variable
@@ -12,6 +18,7 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
   const [terminalesTexto, setTerminalesTexto] = useState("");
   const [inicial, setInicial] = useState("");
   const [produccionesTexto, setProduccionesTexto] = useState({});
+  const [dificultad, setDificultad] = useState("medio");
 
   const variables = parsearSimbolos(variablesTexto);
   const terminales = parsearSimbolos(terminalesTexto);
@@ -56,9 +63,31 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
           Genera una gramática aleatoria, resuélvela a mano y compara tu
           respuesta con el "Proceso completo".
         </p>
+
+        <div className="mt-1 flex flex-col gap-1.5">
+          <span className="text-xs text-paper/60">Dificultad</span>
+          <div className="flex gap-1.5">
+            {NIVELES.map((nivel) => (
+              <button
+                key={nivel.valor}
+                type="button"
+                onClick={() => setDificultad(nivel.valor)}
+                className={
+                  "flex-1 rounded-md border px-2 py-1 font-mono text-xs transition " +
+                  (dificultad === nivel.valor
+                    ? "border-amber bg-amber/15 text-amber"
+                    : "border-blueprint-line text-paper/50 hover:border-amber/40 hover:text-amber/80")
+                }
+              >
+                {nivel.etiqueta}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <button
           type="button"
-          onClick={onGenerar}
+          onClick={() => onGenerar(dificultad)}
           disabled={generando}
           className="mt-1 self-start rounded-md border border-amber/50 px-3 py-1.5 text-sm font-medium text-amber transition hover:bg-amber/10 disabled:cursor-not-allowed disabled:opacity-40"
         >

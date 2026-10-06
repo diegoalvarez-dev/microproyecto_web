@@ -4,12 +4,91 @@ import { formatearEncabezadoG } from "../lib/gramaticaUtils.js";
 function listaProducciones(producciones) {
   const filas = [];
   for (const variable of Object.keys(producciones)) {
-    const texto = producciones[variable]
-      .map((p) => (p.length === 0 ? "λ" : p.join("")))
-      .join(" / ");
-    filas.push({ variable, texto });
+    const items = producciones[variable].map((p) =>
+      p.length === 0 ? "λ" : p.join("")
+    );
+    filas.push({ variable, items });
   }
   return filas;
+}
+
+function esProduccionAgregada(variable, texto, produccionesAgregadas) {
+  if (!produccionesAgregadas || produccionesAgregadas.length === 0) return false;
+  const firma = `${variable} -> ${texto}`;
+  return produccionesAgregadas.includes(firma);
+}
+
+/**
+ * Determina a que tipo de fase pertenece un paso, a partir del texto
+ * de paso.fase (ej. "Eliminación de producción nula: A → λ"), para
+ * decidir COMO se debe interpretar paso.elementosIdentificados: a
+ * veces es una variable completa, a veces una produccion puntual, a
+ * veces un simbolo suelto que puede aparecer dentro de producciones
+ * de cualquier variable.
+ */
+function obtenerTipoFase(fase) {
+  if (!fase) return null;
+  const f = fase.toLowerCase();
+  if (f.includes("nula")) return "nulas";
+  if (f.includes("unitaria")) return "unitarias";
+  if (f.includes("inalcanzable")) return "inalcanzables";
+  if (f.includes("inutil") || f.includes("inútil")) return "inutiles";
+  return null;
+}
+
+/** Extrae el simbolo real de un identificado tipo "G (simbolo no declarado, tratado como inutil)" -> "G" */
+function extraerSimbolo(identificado) {
+  const match = identificado.match(/^([^\s(]+)/);
+  return match ? match[1] : identificado;
+}
+
+/**
+ * Decide si la FILA COMPLETA de una variable (su nombre y todas sus
+ * producciones) debe marcarse en amarillo: solo aplica cuando la
+ * variable misma fue identificada como inutil (sin producciones
+ * propias) o como inalcanzable.
+ */
+function filaCompletaMarcada(variable, paso) {
+  const identificados = paso.elementosIdentificados;
+  if (!identificados || identificados.length === 0) return false;
+  const tipo = obtenerTipoFase(paso.fase);
+  if (tipo === "inalcanzables") return identificados.includes(variable);
+  if (tipo === "inutiles") return identificados.includes(variable);
+  return false;
+}
+
+/**
+ * Decide si UNA producción puntual (dentro de una fila que no se
+ * marco completa) debe pintarse en amarillo.
+ */
+function produccionMarcada(variable, texto, paso) {
+  const identificados = paso.elementosIdentificados;
+  if (!identificados || identificados.length === 0) return false;
+  const tipo = obtenerTipoFase(paso.fase);
+
+  if (tipo === "nulas") {
+    // Solo la produccion vacia (lambda) de la variable identificada
+    return texto === "λ" && identificados.includes(variable);
+  }
+
+  if (tipo === "unitarias") {
+    // Las identificadas ya vienen como "Variable -> produccion"
+    return identificados.includes(`${variable} -> ${texto}`);
+  }
+
+  if (tipo === "inutiles") {
+    // Simbolos no declarados: se marca cualquier produccion, de
+    // cualquier variable, que contenga ese simbolo dentro de si.
+    return identificados.some((id) => {
+      if (id === variable) return false; // eso ya se maneja como fila completa
+      const simbolo = extraerSimbolo(id);
+      return texto.includes(simbolo);
+    });
+  }
+
+  // Fallback por si el texto de la fase no calza con ninguno de los
+  // casos anteriores: intenta igualar la produccion puntual directa.
+  return identificados.includes(`${variable} -> ${texto}`);
 }
 
 function Chip({ children, tono = "neutro" }) {
@@ -63,11 +142,32 @@ function PasoCard({ paso, numero }) {
               {formatearEncabezadoG(paso.gramaticaAntes)}
             </p>
             <div className="space-y-0.5 font-mono text-xs text-paper/70">
-              {listaProducciones(paso.gramaticaAntes.producciones).map((f) => (
-                <div key={f.variable}>
-                  <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
-                </div>
-              ))}
+              {listaProducciones(paso.gramaticaAntes.producciones).map((f) => {
+                const filaCompleta = filaCompletaMarcada(f.variable, paso);
+                return (
+                  <div key={f.variable}>
+                    <span
+                      className={
+                        filaCompleta ? "text-amber font-semibold" : "text-blueprint-mist"
+                      }
+                    >
+                      {f.variable}
+                    </span>{" "}
+                    →{" "}
+                    {f.items.map((texto, i) => {
+                      const marcar = filaCompleta || produccionMarcada(f.variable, texto, paso);
+                      return (
+                        <span key={i}>
+                          <span className={marcar ? "text-amber font-semibold" : ""}>
+                            {texto}
+                          </span>
+                          {i < f.items.length - 1 ? " / " : ""}
+                        </span>
+                      );
+                    })}
+                  </div>
+                );
+              })}
             </div>
           </div>
           <div>
@@ -80,7 +180,22 @@ function PasoCard({ paso, numero }) {
             <div className="space-y-0.5 font-mono text-xs text-paper/90">
               {listaProducciones(paso.gramaticaDespues.producciones).map((f) => (
                 <div key={f.variable}>
-                  <span className="text-blueprint-mist">{f.variable}</span> → {f.texto}
+                  <span className="text-blueprint-mist">{f.variable}</span> →{" "}
+                  {f.items.map((texto, i) => {
+                    const nueva = esProduccionAgregada(
+                      f.variable,
+                      texto,
+                      paso.produccionesAgregadas
+                    );
+                    return (
+                      <span key={i}>
+                        <span className={nueva ? "text-emerald-400 font-semibold" : ""}>
+                          {texto}
+                        </span>
+                        {i < f.items.length - 1 ? " / " : ""}
+                      </span>
+                    );
+                  })}
                 </div>
               ))}
             </div>
