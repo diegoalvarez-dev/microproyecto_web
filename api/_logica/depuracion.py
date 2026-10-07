@@ -489,7 +489,51 @@ def existe_ciclo_unitarias_entre_anulables(gramatica):
 
     return False
 
+def verificar_gramatica_depurada(gramatica):
+    """
+    Verifica si la gramatica ya esta completamente depurada: sin
+    variables inutiles, sin variables inalcanzables, sin producciones
+    nulas y sin producciones unitarias. Se usa como requisito previo
+    para poder ejecutar la conversion a FNC de forma individual: no
+    tiene sentido pasar a Chomsky si la gramatica aun no paso por las
+    4 fases de depuracion.
 
+    Retorna:
+        tuple(bool, list[str]): (True, []) si ya esta depurada, o
+        (False, motivos) con una lista de razones legibles de lo que
+        falta por depurar.
+    """
+    motivos = []
+
+    generadoras = obtener_variables_generadoras(gramatica)
+    inutiles = gramatica.variables - generadoras
+    if inutiles:
+        motivos.append(
+            f"Aun hay variables inutiles (no generadoras): {', '.join(sorted(inutiles))}"
+        )
+
+    alcanzables = obtener_variables_alcanzables(gramatica)
+    inalcanzables = gramatica.variables - alcanzables
+    if inalcanzables:
+        motivos.append(
+            f"Aun hay variables inalcanzables: {', '.join(sorted(inalcanzables))}"
+        )
+
+    variables_con_nula = sorted(
+        v for v, lista in gramatica.producciones.items() if gramatica.NULA in lista
+    )
+    if variables_con_nula:
+        motivos.append(
+            f"Aun hay producciones nulas (λ) en: {', '.join(variables_con_nula)}"
+        )
+
+    pares_unitarios = obtener_pares_unitarios(gramatica)
+    if pares_unitarios:
+        descripcion = ", ".join(f"{origen} -> {destino}" for origen, destino in pares_unitarios)
+        motivos.append(f"Aun hay producciones unitarias: {descripcion}")
+
+    return (len(motivos) == 0, motivos)
+    
 def depurar_gramatica(gramatica, historial=None):
     """
     Ejecuta el proceso completo de depuracion:

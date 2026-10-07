@@ -40,6 +40,7 @@ from _logica.depuracion import (
     eliminar_producciones_nulas,
     eliminar_producciones_unitarias,
     depurar_gramatica,
+    verificar_gramatica_depurada,
 )
 from _logica.chomsky import convertir_a_fnc, validar_fnc
 from _logica.historial import Historial
@@ -123,6 +124,17 @@ def endpoint_chomsky():
     valida, errores = validar_gramatica(gramatica)
     if not valida:
         return jsonify({"error": "La gramatica no es valida.", "errores": errores}), 400
+
+    depurada, motivos = verificar_gramatica_depurada(gramatica)
+    if not depurada:
+        return jsonify({
+            "error": (
+                "La gramatica aun no esta completamente depurada. "
+                "Completa las fases de depuracion (inutiles, inalcanzables, "
+                "nulas y unitarias) antes de convertir a FNC."
+            ),
+            "errores": motivos,
+        }), 400
 
     historial = Historial()
     resultado = convertir_a_fnc(gramatica, historial)
