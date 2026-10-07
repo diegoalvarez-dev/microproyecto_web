@@ -39,10 +39,17 @@ export function formatearProduccion(tupla) {
  * inicial). El conjunto de no terminales SI incluye la inicial
  * (es matematicamente parte de V), y ademas se muestra por separado
  * como el simbolo S, tal como exige la definicion formal G=(V,T,S,P).
+ *
+ * Si "esFnc" es true, el encabezado se muestra como "G(FNC) = (...)"
+ * en vez de "G = (...)" — pensado para cuando la gramatica mostrada
+ * ya es el resultado de aplicar la conversion a Forma Normal de
+ * Chomsky. Por defecto es false, asi que todos los usos existentes
+ * (ej. el historial de transformaciones) no se ven afectados.
  */
-export function formatearEncabezadoG(gramatica) {
+export function formatearEncabezadoG(gramatica, esFnc = false) {
   const { variables, terminales, inicial } = gramatica;
-  return `G = ({${variables.join(", ")}}, ${inicial}, {${terminales.join(", ")}}, Σ)`;
+  const etiqueta = esFnc ? "G(FNC)" : "G";
+  return `${etiqueta} = ({${variables.join(", ")}}, ${inicial}, {${terminales.join(", ")}}, Σ)`;
 }
 
 /** Convierte "A, B, C" o "A B C" en ["A","B","C"] */

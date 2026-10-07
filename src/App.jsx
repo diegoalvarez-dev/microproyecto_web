@@ -220,6 +220,7 @@ export default function App() {
                 gramatica={gramaticaActual}
                 titulo="Gramática actual"
                 sigma={sigmaActual}
+                esFnc={Boolean(resultadoFnc)}
               />
 
               <HistorialTimeline pasos={pasos} />

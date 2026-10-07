@@ -5,7 +5,7 @@ import { formatearEncabezadoG } from "../lib/gramaticaUtils.js";
  * V, T, S y las producciones en fuente monoespaciada, tal como se
  * verian en el tablero de un curso de teoria de la computacion.
  */
-export default function GrammarPanel({ gramatica, titulo = "Gramática actual", sigma }) {
+export default function GrammarPanel({ gramatica, titulo = "Gramática actual", sigma, esFnc = false }) {
   if (!gramatica) return null;
 
   const { inicial, producciones } = gramatica;
@@ -24,7 +24,7 @@ export default function GrammarPanel({ gramatica, titulo = "Gramática actual", 
           )}
         </div>
         <span className="font-mono text-xs text-paper/40">
-          {formatearEncabezadoG(gramatica)}
+          {formatearEncabezadoG(gramatica, esFnc)}
         </span>
       </div>
 
