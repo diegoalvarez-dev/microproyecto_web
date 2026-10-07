@@ -4,7 +4,6 @@
  */
 export default function Toolbar({ acciones, cargando, faseActiva }) {
   const botones = [
-    { id: "validar", etiqueta: "Validar" },
     { id: "inutiles", etiqueta: "Eliminar inútiles" },
     { id: "inalcanzables", etiqueta: "Eliminar inalcanzables" },
     { id: "nulas", etiqueta: "Eliminar nulas" },
@@ -40,7 +39,7 @@ export default function Toolbar({ acciones, cargando, faseActiva }) {
 
       <button
         onClick={() => acciones.reiniciar()}
-        className="ml-auto rounded-md border border-coral/40 px-3 py-1.5 text-sm font-medium text-coral/90 transition hover:border-coral hover:bg-coral/10"
+        className="ml-auto rounded-md border border-emerald-500/50 px-3 py-1.5 text-sm font-medium text-emerald-400 transition hover:border-emerald-400 hover:bg-emerald-500/10"
       >
         Nueva gramática
       </button>
