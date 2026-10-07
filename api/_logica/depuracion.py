@@ -389,6 +389,16 @@ def eliminar_producciones_unitarias(gramatica, historial=None):
     producciones de E — pero eso NO vuelve a tocar a B despues (no
     hay ningun paso de "actualizacion").
 
+    Si "destino" tiene una produccion NULA (λ) en ese momento, esta
+    SI se hereda hacia "variable": si variable -> destino y destino
+    puede derivar λ, entonces variable tambien puede derivar λ (es
+    la misma logica de sustitucion que para cualquier otra
+    produccion de destino, no hay motivo para tratar la nula
+    distinto). Esto importa especialmente cuando las unitarias se
+    resuelven ANTES que las nulas (orden invertido, para romper un
+    ciclo): en ese momento SI pueden quedar nulas sin resolver en
+    "destino", y hay que propagarlas igual que el resto.
+
     Si varias unitarias parten de la MISMA variable origen (ej.
     A -> B y A -> C), se resuelven JUNTAS en un solo paso.
     """
@@ -415,13 +425,14 @@ def eliminar_producciones_unitarias(gramatica, historial=None):
             for produccion in nueva.producciones.get(destino, []):
                 if len(produccion) == 1 and produccion[0] in nueva.variables:
                     continue  # unitaria propia de "destino": se resuelve en SU turno
-                if produccion == nueva.NULA and destino != variable:
-                    continue  # una nula no se propaga entre variables distintas
                 if produccion not in nueva_lista:
                     nueva_lista.append(produccion)
-                    producciones_agregadas.append(
-                        f"{variable} -> {formatear_produccion(produccion)}"
-                    )
+                    if produccion == nueva.NULA:
+                        producciones_agregadas.append(f"{variable} -> λ")
+                    else:
+                        producciones_agregadas.append(
+                            f"{variable} -> {formatear_produccion(produccion)}"
+                        )
 
         nueva.producciones[variable] = nueva_lista
 
