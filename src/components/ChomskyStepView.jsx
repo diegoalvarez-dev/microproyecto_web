@@ -57,6 +57,20 @@ export default function ChomskyStepView({ detalle }) {
         </div>
       </div>
 
+           <div className="flex flex-col gap-2">
+        <p className="rounded-md border border-dashed border-blueprint-line bg-blueprint-deep/40 p-3 text-xs leading-relaxed text-paper/60">
+          <span className="font-semibold text-amber">⭕ Círculo:</span> la
+          producción va dentro de una variable (Vnt) que ya existía desde la
+          depuración — queda como parte de las producciones de esa misma
+          variable en la gramática final.
+        </p>
+        <p className="rounded-md border border-dashed border-blueprint-line bg-blueprint-deep/40 p-3 text-xs leading-relaxed text-paper/60">
+          <span className="font-semibold text-emerald-300">✓ Chulo verde:</span>{" "}
+          es una variable auxiliar NUEVA que crea Chomsky (X1, X2, X3...) — se
+          agrega al conjunto de variables no terminales (Vnt) de la gramática.
+        </p>
+      </div>
+
       {grupos.map((grupo) => (
         <div key={grupo.variable} className="flex flex-col gap-2">
           <p className="font-mono text-sm font-semibold text-blueprint-mist">

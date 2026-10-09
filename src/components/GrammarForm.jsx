@@ -7,6 +7,21 @@ const NIVELES = [
   { valor: "dificil", etiqueta: "Difícil" },
 ];
 
+// Variables (VNT): solo letras MAYÚSCULAS (ademas de espacios/comas como separadores).
+const REGEX_VARIABLES = /^[A-Z\s,]*$/;
+// Terminales (VT): solo letras minusculas o numeros (ademas de espacios/comas).
+const REGEX_TERMINALES = /^[a-z0-9\s,]*$/;
+
+function campoClase(esInvalido, extra = "") {
+  return (
+    "campo-input" +
+    (esInvalido
+      ? " border-coral text-coral focus:border-coral focus:ring-coral/30"
+      : "") +
+    (extra ? " " + extra : "")
+  );
+}
+
 /**
  * Formulario de ingreso de la gramatica: variables, terminales,
  * simbolo inicial, y un campo de producciones por cada variable
@@ -22,6 +37,12 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
 
   const variables = parsearSimbolos(variablesTexto);
   const terminales = parsearSimbolos(terminalesTexto);
+
+  // Validaciones en vivo pedidas por la ingeniera:
+  const variablesValidas = REGEX_VARIABLES.test(variablesTexto);
+  const terminalesValidos = REGEX_TERMINALES.test(terminalesTexto);
+  const inicialTexto = inicial.trim();
+  const inicialValido = inicialTexto === "" || variables.includes(inicialTexto);
 
   function actualizarProduccion(variable, texto) {
     setProduccionesTexto((prev) => ({ ...prev, [variable]: texto }));
@@ -45,13 +66,18 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
     onRegistrar({
       variables,
       terminales,
-      inicial: inicial.trim(),
+      inicial: inicialTexto,
       producciones,
     });
   }
 
   const listo =
-    variables.length > 0 && terminales.length > 0 && inicial.trim() !== "";
+    variables.length > 0 &&
+    terminales.length > 0 &&
+    inicialTexto !== "" &&
+    variablesValidas &&
+    terminalesValidos &&
+    inicialValido;
 
   return (
     <>
@@ -108,34 +134,48 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
         </p>
       </div>
 
-      <Campo etiqueta="Variables (VNT)" ayuda="ej. A B C  ó  A,B,C">
+      <Campo
+        etiqueta="Variables (VNT)"
+        ayuda="ej. A B C  ó  A,B,C"
+        error={!variablesValidas}
+        mensajeError="Solo se permiten letras MAYÚSCULAS (A-Z)."
+      >
         <input
           value={variablesTexto}
           onChange={(e) => setVariablesTexto(e.target.value)}
           placeholder="A B C"
-          className="campo-input"
+          className={campoClase(!variablesValidas)}
         />
       </Campo>
 
-      <Campo etiqueta="Terminales (VT)" ayuda="ej. 1 2  ó  1,2">
+      <Campo
+        etiqueta="Terminales (VT)"
+        ayuda="ej. 1 2  ó  1,2"
+        error={!terminalesValidos}
+        mensajeError="Solo se permiten letras minúsculas o números."
+      >
         <input
           value={terminalesTexto}
           onChange={(e) => setTerminalesTexto(e.target.value)}
           placeholder="1 2"
-          className="campo-input"
+          className={campoClase(!terminalesValidos)}
         />
       </Campo>
 
-      <Campo etiqueta="Símbolo inicial">
+      <Campo
+        etiqueta="Símbolo inicial"
+        error={!inicialValido}
+        mensajeError="Debe ser una de las variables (VNT) definidas arriba."
+      >
         <input
           value={inicial}
           onChange={(e) => setInicial(e.target.value)}
           placeholder="A"
-          className="campo-input w-24"
+          className={campoClase(!inicialValido, "w-24")}
         />
       </Campo>
 
-      {variables.length > 0 && (
+       {variables.length > 0 && variablesValidas && (
         <div className="flex flex-col gap-3 border-t border-blueprint-line pt-4">
           <span className="font-mono text-xs uppercase tracking-wide text-blueprint-mist">
             Producciones
@@ -176,12 +216,16 @@ export default function GrammarForm({ onRegistrar, onGenerar, cargando, generand
   );
 }
 
-function Campo({ etiqueta, ayuda, children }) {
+function Campo({ etiqueta, ayuda, error, mensajeError, children }) {
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-sm font-medium text-paper/90">{etiqueta}</span>
       {children}
-      {ayuda && <span className="text-xs text-paper/40">{ayuda}</span>}
+      {error && mensajeError ? (
+        <span className="text-xs text-coral">{mensajeError}</span>
+      ) : (
+        ayuda && <span className="text-xs text-paper/40">{ayuda}</span>
+      )}
     </label>
   );
 }
